@@ -1,0 +1,87 @@
+- name: Install apache2
+  apt:
+    name: apache2
+    update_cache: yes
+    state: present
+
+- name: Ensure that apache is running and will start at system boot
+  service:
+    name: apache2
+    state: started
+    enabled: yes
+
+- name: enabled mod_rewrite
+  apache2_module: name=rewrite state=present
+
+- name: Add PHP 7.1 repository
+  apt_repository:
+    repo: 'ppa:ondrej/php'
+    state: present
+
+- name: Install PHP 7.1 and requires packages
+  apt: name={{ packages }} state=present update_cache=yes
+  vars:
+    packages:
+      - php7.1
+      - php7.1-xml
+      - php7.1-mbstring
+      - php7.1-mysql
+      - php7.1-json
+      - php7.1-curl
+      - php7.1-cli
+      - php7.1-common
+      - php7.1-mcrypt
+      - php7.1-gd
+      - php7.1-zip
+      - php7.1-redis
+      - php7.1-memcached
+      - libapache2-mod-php7.1
+      - php7.1-fpm
+      - composer
+      - git
+  notify: restart-apache
+
+- name: Set values on php.ini
+  lineinfile:
+    dest: /etc/php/7.1/apache2/php.ini
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - { regexp: "date.timezone", line: "date.timezone = 'UTC'" }
+    - { regexp: "short_open_tag =", line: "short_open_tag = On" }
+  notify: restart-apache
+
+- name: Create a directory if it does not exist
+  file:
+    path: "/var/www/{{ http_host }}"
+    state: directory
+    mode: '0755'
+
+#- name: Create a directory if it does not exist
+#  file:
+#    path: "/var/www/{{ http_host }}/current"
+#    state: directory
+#    mode: '0755'
+
+- name: Copy PHP info file
+  copy: src=info.php dest=/var/www/{{ http_host }}/current/info.php
+
+- name: change default page
+  template:
+    src: index.html.j2
+    dest: /var/www/{{ http_host }}/current/index.html
+
+- name: create virtual host file
+  template:
+    src: virtualhost.conf
+    dest: /etc/apache2/sites-available/{{ http_host }}.conf
+  notify: restart-apache
+
+- name: Enable new site
+  shell: /usr/sbin/a2ensite {{ http_host }}.conf
+  notify: restart-apache
+
+- name: Disable default Apache site
+  shell: /usr/sbin/a2dissite 000-default.conf
+  when: disable_default
+  notify: restart-apache

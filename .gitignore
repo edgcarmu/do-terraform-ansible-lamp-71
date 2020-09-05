@@ -1,0 +1,6 @@
+*.retry
+*.tfstate*
+*.tfstate.backup*
+*.tfvars
+*.terraform
+*.idea

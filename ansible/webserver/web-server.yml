@@ -1,0 +1,5 @@
+---
+- hosts: web-server
+  user: root
+  roles:
+     - web-server
